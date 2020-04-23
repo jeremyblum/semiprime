@@ -24,7 +24,7 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
         findViewById(R.id.btnStart).setOnClickListener(v -> factor(v));
 
 
-        if (savedInstanceState != null) {
+        if (savedInstanceState != null && savedInstanceState.getBoolean("isFactoring")) {
             lastTested = new BigInteger(savedInstanceState.getString("lastTested"));
             semiPrime = new BigInteger(savedInstanceState.getString("semiprime"));
         }
@@ -43,8 +43,6 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
     protected void onStop() {
         super.onStop();
         if (backgroundTask != null) {
-            semiPrime = backgroundTask.getSemiPrime();
-            lastTested = backgroundTask.getLastTested();
             backgroundTask.cancel(true);
         }
     }
@@ -54,8 +52,12 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
         super.onSaveInstanceState(savedState);
 
         if (backgroundTask != null) {
-            savedState.putString("semiprime", backgroundTask.getSemiPrime().toString());
-            savedState.putString("lastTested", backgroundTask.getLastTested().toString());
+            savedState.putBoolean("isFactoring", true);
+            savedState.putString("semiprime", semiPrime.toString());
+            savedState.putString("lastTested", lastTested.toString());
+        }
+        else {
+            savedState.putBoolean("isFactoring", false);
         }
     }
 
@@ -71,11 +73,13 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
 
     @Override
     public void reportProgress (BigInteger lastTested){
+        this.lastTested = lastTested;
         ((TextView) findViewById(R.id.txtProgress)).setText("Last Tested:\n" + lastTested.toString());
     }
 
     @Override
     public void foundFactor (BigInteger factor){
         ((TextView) findViewById(R.id.txtProgress)).setText("FACTORED!!!\n" + factor.toString());
+        backgroundTask = null;
     }
 }
