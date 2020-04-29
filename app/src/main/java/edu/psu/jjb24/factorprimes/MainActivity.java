@@ -23,7 +23,6 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
 
         findViewById(R.id.btnStart).setOnClickListener(v -> factor(v));
 
-
         if (savedInstanceState != null && savedInstanceState.getBoolean("isFactoring")) {
             lastTested = new BigInteger(savedInstanceState.getString("lastTested"));
             semiPrime = new BigInteger(savedInstanceState.getString("semiprime"));
@@ -40,8 +39,8 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
     }
 
     @Override
-    protected void onStop() {
-        super.onStop();
+    protected void onPause() {
+        super.onPause();
         if (backgroundTask != null) {
             backgroundTask.cancel(true);
         }
@@ -81,5 +80,6 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
     public void foundFactor (BigInteger factor){
         ((TextView) findViewById(R.id.txtProgress)).setText("FACTORED!!!\n" + factor.toString());
         backgroundTask = null;
+        semiPrime = null;
     }
 }
