@@ -19,8 +19,7 @@ public class FactoringTask {
     private static int PROGRESS_MESSAGE = 1;
     private static int RESULT_MESSAGE = 2;
 
-    // Handler for the main thread
-    private Handler mThreadHandler;
+    private Handler handler;
     private Thread thread;
 
     private final BigInteger semiprime; // Semiprime to factor
@@ -31,7 +30,7 @@ public class FactoringTask {
         this.semiprime = semiprime;
         this.lastTested = lastTested;
 
-        mThreadHandler = new Handler(Looper.getMainLooper()) {
+        handler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
@@ -53,19 +52,19 @@ public class FactoringTask {
 
             while (!semiprime.mod(lastTested).equals(BigInteger.ZERO)) {
 
-                Message msg = mThreadHandler.obtainMessage();
+                Message msg = handler.obtainMessage();
                 msg.arg1 = PROGRESS_MESSAGE;
                 msg.obj = lastTested;
-                mThreadHandler.sendMessage(msg);
+                handler.sendMessage(msg);
 
                 lastTested = lastTested.nextProbablePrime();
 
                 if (Thread.interrupted()) return;
             }
-            Message msg = mThreadHandler.obtainMessage();
+            Message msg = handler.obtainMessage();
             msg.arg1 = RESULT_MESSAGE;
             msg.obj = lastTested;
-            mThreadHandler.sendMessage(msg);
+            handler.sendMessage(msg);
         });
         thread.start();
     }
