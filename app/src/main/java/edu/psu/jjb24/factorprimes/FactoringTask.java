@@ -1,91 +1,80 @@
 package edu.psu.jjb24.factorprimes;
 
-import android.os.AsyncTask;
-import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 
 import java.math.BigInteger;
 import java.util.Random;
 
-public class FactoringTask extends AsyncTask<BigInteger, BigInteger, BigInteger> {
-
-    public interface OnResult {
+public class FactoringTask {
+    public interface OnProgressListener {
         void reportProgress(BigInteger lastTested);
+    }
+
+    public interface OnResultListener {
         void foundFactor(BigInteger factor);
     }
 
-    private static final String TAG = "Factoring Task";
+    private static int PROGRESS_MESSAGE = 1;
+    private static int RESULT_MESSAGE = 2;
 
-    private final BigInteger semiprime;
-    private BigInteger lastTested;
-    private OnResult listener;
+    // Handler for the main thread
+    private Handler mThreadHandler;
+    private Thread thread;
 
-    public FactoringTask(BigInteger semiprime, OnResult listener) {
+    private final BigInteger semiprime; // Semiprime to factor
+    private BigInteger lastTested; // Last prime factor that was tested
+
+    // Note: constructor registers the callback object
+    public FactoringTask(BigInteger semiprime, BigInteger lastTested, OnResultListener resultListener, OnProgressListener progressListener) {
         this.semiprime = semiprime;
-        this.listener = listener;
-    }
-
-    public BigInteger getSemiPrime() {
-        return semiprime;
-    }
-
-    // Q: How do we prevent thread interference?
-    private synchronized void setLastTested(BigInteger lastTested) {
         this.lastTested = lastTested;
-    }
-    public synchronized BigInteger getLastTested() {
-        return lastTested;
-    }
 
-    @Override
-    protected BigInteger doInBackground(BigInteger... params) {
-        Log.d(TAG, "doInBackground started");
+        mThreadHandler = new Handler(Looper.getMainLooper()) {
+            @Override
+            public void handleMessage(Message msg) {
+                super.handleMessage(msg);
 
-        BigInteger factor;
-
-        if (params.length != 0) {
-            factor = params[0];
-        }
-        else {
-            factor = BigInteger.probablePrime(semiprime.bitLength()/2, new Random());
-        }
-
-        while (!semiprime.mod(factor).equals(BigInteger.ZERO)) {
-            setLastTested(factor);
-
-            publishProgress(factor);
-
-            if (isCancelled()) {
-                Log.d(TAG, "doInBackground determined cancelled");
-                return null;
+                if (msg.arg1 == PROGRESS_MESSAGE) {
+                    progressListener.reportProgress((BigInteger) msg.obj);
+                } else if (msg.arg1 == RESULT_MESSAGE) {
+                    resultListener.foundFactor((BigInteger) msg.obj);
+                }
             }
-            factor = factor.nextProbablePrime();
-        }
-        return factor;
+        };
     }
 
-    @Override
-    protected void onPreExecute() {
-        super.onPreExecute();
-        Log.d(TAG, "onPreExecute called");
+    public void execute(){
+        thread = new Thread(() -> {
+            if (lastTested == null) {
+                lastTested = BigInteger.probablePrime(semiprime.bitLength() / 2, new Random());
+            }
+
+            while (!semiprime.mod(lastTested).equals(BigInteger.ZERO)) {
+
+                Message msg = mThreadHandler.obtainMessage();
+                msg.arg1 = PROGRESS_MESSAGE;
+                msg.obj = lastTested;
+                mThreadHandler.sendMessage(msg);
+
+                lastTested = lastTested.nextProbablePrime();
+
+                if (Thread.interrupted()) return;
+            }
+            Message msg = mThreadHandler.obtainMessage();
+            msg.arg1 = RESULT_MESSAGE;
+            msg.obj = lastTested;
+            mThreadHandler.sendMessage(msg);
+        });
+        thread.start();
     }
 
-    @Override
-    protected void onProgressUpdate(BigInteger... values) {
-        Log.v(TAG, "publishing progress" + values[0]);
-        listener.reportProgress(values[0]);
-    }
-
-    @Override
-    protected void onCancelled() {
-        Log.d(TAG, "onCancelled called");
-    }
-
-    @Override
-    protected void onPostExecute(BigInteger factor) {
-        Log.d(TAG, "onPostExecute called with result" + factor);
-
-        listener.foundFactor(factor);
+    public void cancel() {
+        if (thread != null) thread.interrupt();
     }
 }
+
+
 
 

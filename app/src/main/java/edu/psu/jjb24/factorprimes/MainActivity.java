@@ -5,13 +5,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.math.BigInteger;
 
-public class MainActivity extends AppCompatActivity implements FactoringTask.OnResult{
+public class MainActivity extends AppCompatActivity implements FactoringTask.OnResultListener, FactoringTask.OnProgressListener {
     FactoringTask backgroundTask = null;
     BigInteger semiPrime;  // If this is non-null, that means that there is a suspended AsyncTask that we need to restart
     BigInteger lastTested;
@@ -21,7 +19,7 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        findViewById(R.id.btnStart).setOnClickListener(v -> factor(v));
+        findViewById(R.id.btnStart).setOnClickListener(this::factor);
 
         if (savedInstanceState != null && savedInstanceState.getBoolean("isFactoring")) {
             lastTested = new BigInteger(savedInstanceState.getString("lastTested"));
@@ -33,8 +31,8 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
     protected void onResume() {
         super.onResume();
         if (semiPrime != null) {
-            backgroundTask = new FactoringTask(semiPrime, this);
-            backgroundTask.execute(lastTested);
+            backgroundTask = new FactoringTask(semiPrime, lastTested, this, this);
+            backgroundTask.execute();
         }
     }
 
@@ -42,7 +40,7 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
     protected void onPause() {
         super.onPause();
         if (backgroundTask != null) {
-            backgroundTask.cancel(true);
+            backgroundTask.cancel();
         }
     }
 
@@ -60,22 +58,28 @@ public class MainActivity extends AppCompatActivity implements FactoringTask.OnR
         }
     }
 
+    // Called when you click on button
     private void factor(View v) {
         if (backgroundTask != null) {
-            backgroundTask.cancel(false);
+            // Cancel a task if one is already running
+            backgroundTask.cancel();
         }
         semiPrime = new BigInteger(((EditText) findViewById(R.id.etNumber)).getText().toString());
 
-        backgroundTask = new FactoringTask(semiPrime, this);
-        backgroundTask.execute();
+        // Instantiate the asynctasks:
+        backgroundTask = new FactoringTask(semiPrime, null, this, this); // Note we use the Activity as callback object
+        backgroundTask.execute(); // No argument when we are starting a new factoring task
+                                  // Pick a random factor to start testing
     }
 
+    // Callback method 1
     @Override
     public void reportProgress (BigInteger lastTested){
         this.lastTested = lastTested;
         ((TextView) findViewById(R.id.txtProgress)).setText("Last Tested:\n" + lastTested.toString());
     }
 
+    // Callback method 2
     @Override
     public void foundFactor (BigInteger factor){
         ((TextView) findViewById(R.id.txtProgress)).setText("FACTORED!!!\n" + factor.toString());
